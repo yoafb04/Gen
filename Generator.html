@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Series Generator</title>
+  <title>Series Generator with Graph</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -11,30 +11,29 @@
       padding: 30px;
       color: #333;
       display: flex;
-      flex-direction: column;
-      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .left-section {
+      width: 45%;
+      min-width: 350px;
+    }
+
+    .right-section {
+      width: 50%;
+      min-width: 350px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
     }
 
     h1 {
       text-align: center;
       color: #444;
       margin-bottom: 30px;
-    }
-
-    .container {
-      display: flex;
-      gap: 40px;
-      justify-content: center;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      max-width: 1200px;
       width: 100%;
-    }
-
-    .left-panel {
-      flex: 1;
-      min-width: 350px;
-      max-width: 500px;
     }
 
     form {
@@ -42,7 +41,6 @@
       padding: 25px;
       border-radius: 12px;
       box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
     }
 
     label {
@@ -94,18 +92,10 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       white-space: pre-wrap;
       font-family: monospace;
-      font-size: 16px;
-      height: 250px;
+      font-size: 15px;
+      margin-top: 20px;
+      height: 200px;
       overflow-y: auto;
-    }
-
-    .chart-container {
-      flex: 1;
-      min-width: 400px;
-      background: #fff;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
     }
   </style>
 </head>
@@ -113,45 +103,42 @@
 
 <h1>Series Generator</h1>
 
-<div class="container">
-  <div class="left-panel">
-    <form id="seriesForm">
-      <label>Starting Value (Base Line):
-        <input type="number" id="startValue" min="0" placeholder="e.g., 100" required>
-      </label>
+<div class="left-section">
+  <form id="seriesForm">
+    <label>Starting Value (Base Line):
+      <input type="number" id="startValue" min="0" placeholder="e.g., 100" required>
+    </label>
 
-      <label>Number of Weeks to Generate:
-        <input type="number" id="totalWeeks" min="1" placeholder="e.g., 12" required>
-      </label>
+    <label>Number of Weeks to Generate:
+      <input type="number" id="totalWeeks" min="1" placeholder="e.g., 12" required>
+    </label>
 
-      <label>Number of Target Events (Cumplimientos):
-        <input type="number" id="totalCumplimientos" min="0" placeholder="e.g., 5" required>
-      </label>
+    <label>Number of Target Events (Cumplimientos):
+      <input type="number" id="totalCumplimientos" min="0" placeholder="e.g., 5" required>
+    </label>
 
-      <label>Minimum Gap Between Target Events:
-        <input type="number" id="minGap" min="0" placeholder="e.g., 2" required>
-      </label>
+    <label>Minimum Gap Between Target Events:
+      <input type="number" id="minGap" min="0" placeholder="e.g., 2" required>
+    </label>
 
-      <label>Maximum Gap Between Target Events:
-        <input type="number" id="maxGap" min="0" placeholder="e.g., 4" required>
-      </label>
+    <label>Maximum Gap Between Target Events:
+      <input type="number" id="maxGap" min="0" placeholder="e.g., 4" required>
+    </label>
 
-      <label>Random Variation Allowed (Variability):
-        <input type="number" id="variability" min="0" placeholder="e.g., 3" required>
-      </label>
+    <label>Random Variation Allowed (Variability):
+      <input type="number" id="variability" min="0" placeholder="e.g., 3" required>
+    </label>
 
-      <button type="submit">Generate Series</button>
-    </form>
+    <button type="submit">Generate Series</button>
+  </form>
 
-    <div id="output" placeholder="Your series will appear here..."></div>
-  </div>
-
-  <div class="chart-container">
-    <canvas id="seriesChart"></canvas>
-  </div>
+  <div id="output"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<div class="right-section">
+  <canvas id="seriesChart"></canvas>
+</div>
+
 <script>
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -209,14 +196,14 @@ function generateSeries(startValue, totalWeeks, totalCumplimientos, minGap, maxG
     seq[i] = val;
   }
 
-  return seq.map((v, idx) => plannedPositions.includes(idx) ? `*${v}` : `${v}`);
+  return { seq, plannedPositions };
 }
 
-// --- Chart Setup ---
-let chart = null;
+let chart;
 
 document.getElementById("seriesForm").addEventListener("submit", function(e) {
   e.preventDefault();
+
   const startValue = parseInt(document.getElementById("startValue").value);
   const totalWeeks = parseInt(document.getElementById("totalWeeks").value);
   const totalCumplimientos = parseInt(document.getElementById("totalCumplimientos").value);
@@ -225,34 +212,48 @@ document.getElementById("seriesForm").addEventListener("submit", function(e) {
   const variability = parseInt(document.getElementById("variability").value);
 
   try {
-    const series = generateSeries(startValue, totalWeeks, totalCumplimientos, minGap, maxGap, variability);
-    document.getElementById("output").textContent = series.join("\n");
+    const { seq, plannedPositions } = generateSeries(startValue, totalWeeks, totalCumplimientos, minGap, maxGap, variability);
+    const labeledSeries = seq.map((v, i) => plannedPositions.includes(i) ? `*${v}` : `${v}`);
+    document.getElementById("output").textContent = labeledSeries.join("\n");
 
-    // Prepare chart data
-    const yValues = series.map(v => parseInt(v.replace("*", "")));
-    const labels = yValues.map((_, i) => `Week ${i+1}`);
+    // Graph data
+    const labels = Array.from({ length: totalWeeks }, (_, i) => i + 1);
+    const mainData = seq;
+    const targetPoints = plannedPositions.map(i => ({ x: i + 1, y: seq[i] }));
 
     if (chart) chart.destroy();
-
     const ctx = document.getElementById("seriesChart").getContext("2d");
+
     chart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: labels,
-        datasets: [{
-          label: 'Generated Series',
-          data: yValues,
-          fill: false,
-          borderColor: '#4caf50',
-          tension: 0.3,
-          pointBackgroundColor: yValues.map(v => v === 0 ? 'red' : '#4caf50'),
-        }]
+        datasets: [
+          {
+            label: 'Series',
+            data: mainData,
+            borderColor: '#2196f3',
+            fill: false,
+            tension: 0.3
+          },
+          {
+            label: 'Target Events',
+            data: targetPoints,
+            pointBackgroundColor: 'red',
+            pointBorderColor: 'red',
+            showLine: false,
+            pointRadius: 6,
+            type: 'scatter'
+          }
+        ]
       },
       options: {
-        responsive: true,
         scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'Value' } },
+          y: { beginAtZero: true },
           x: { title: { display: true, text: 'Weeks' } }
+        },
+        plugins: {
+          legend: { display: true, position: 'bottom' }
         }
       }
     });
