@@ -23,7 +23,6 @@ canvas { width: 100% !important; height: 500px; max-height: 500px; }
 </style>
 </head>
 <body>
-
 <div class="main-wrapper">
   <div class="chart-container">
     <h1>
@@ -53,7 +52,6 @@ function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// generate block with max 2 repeats, never exceed maxVal
 function generateBlock(base, length, variability, maxVal=null) {
     const block = [];
     const counts = {};
@@ -82,10 +80,8 @@ function generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability,
     week++;
 
     for(let c=0;c<totalCumplimientos;c++){
-        // target is multiple of 5 below lastMastered
         const target = Math.floor((lastMastered - 1)/5)*5;
 
-        // GAP BLOCK
         const gapLength = randomInt(minGap,maxGap);
         let gapBlock = [];
 
@@ -116,9 +112,7 @@ function generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability,
 
         if(week+4>totalWeeks) break;
 
-        // STO BLOCK (4 weeks)
         const stBlock = generateBlock(target,4,stVariability,target);
-
         for(let i=0;i<stBlock.length && week<totalWeeks;i++,week++){
             series.push(stBlock[i]);
             stWeeks.push(week);
@@ -173,16 +167,40 @@ function updateSeries(){
         data:{
             labels: labels,
             datasets:[
-                {label:'Series', data:series, borderColor:'#2196f3', fill:false, tension:0.3,
-                 datalabels:{display:true,color:'#2196f3',font:{size:12},anchor:'end',align:'top'}},
-                {label:'ST', data:scatterst, backgroundColor:'red', pointRadius:6, showLine:false, type:'scatter', datalabels:{display:false}}
+                {
+                    label:'Series', 
+                    data:series, 
+                    borderColor:'#2196f3', 
+                    fill:false, 
+                    tension:0, // step-like line
+                    pointRadius:4,
+                    pointBackgroundColor:'#2196f3',
+                    datalabels:{display:true,color:'#2196f3',font:{size:12},anchor:'end',align:'top'}
+                },
+                {
+                    label:'ST', 
+                    data:scatterst, 
+                    backgroundColor:'red', 
+                    pointRadius:6, 
+                    showLine:false, 
+                    type:'scatter', 
+                    datalabels:{display:false}
+                }
             ]
         },
         options:{
             plugins:{legend:{display:true, position:'bottom'}}, 
             scales:{
-                y:{beginAtZero:true, suggestedMax:baseline+10, ticks:{stepSize:5}},
-                x:{title:{display:true,text:'Weeks'}}
+                y:{
+                    beginAtZero:true, 
+                    suggestedMax:baseline+10, 
+                    ticks:{stepSize:5},
+                    grid:{color:'#e0e0e0'}
+                },
+                x:{
+                    title:{display:true,text:'Weeks'},
+                    grid:{color:'#e0e0e0'}
+                }
             },
             layout:{padding:{top:20}}
         }
