@@ -1,268 +1,184 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Series Generator with Graph</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f4f4f4;
-      padding: 30px;
-      color: #333;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-    }
-
-    .left-section {
-      width: 45%;
-      min-width: 350px;
-    }
-
-    .right-section {
-      width: 50%;
-      min-width: 350px;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-      text-align: center;
-      color: #444;
-      margin-bottom: 30px;
-      width: 100%;
-    }
-
-    form {
-      background: #fff;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-    }
-
-    label {
-      display: block;
-      margin-bottom: 15px;
-      font-weight: 600;
-    }
-
-    input[type="number"] {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    input[type="number"]:focus {
-      border-color: #4caf50;
-      box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
-      outline: none;
-    }
-
-    button {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      background: linear-gradient(90deg, #4caf50, #45a049);
-      color: white;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin-top: 10px;
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-    }
-
-    #output {
-      background: #fff;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      white-space: pre-wrap;
-      font-family: monospace;
-      font-size: 15px;
-      margin-top: 20px;
-      height: 200px;
-      overflow-y: auto;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Series Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f4; color: #333; padding: 20px; display: flex; justify-content: center; }
+.main-wrapper { display: flex; gap: 20px; flex-wrap: wrap; max-width: 1000px; width: 100%; }
+.chart-container, .output-container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.1); }
+.chart-container { flex: 1; display: flex; flex-direction: column; }
+.output-container { width: 120px; font-family: monospace; font-size: 14px; max-height: 400px; overflow-y: auto; white-space: pre; }
+h1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; color: #444; }
+#refreshBtn { border: none; background: none; cursor: pointer; font-size: 22px; transition: transform 0.3s; }
+#refreshBtn:hover { transform: rotate(90deg); }
+canvas { width: 100% !important; height: 500px; max-height: 500px; }
+.input-row { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; justify-content: center; }
+.input-row label { display: flex; flex-direction: column; font-weight: 600; font-size: 14px; align-items: center; }
+.input-row input[type="number"] { width: 70px; padding: 6px 8px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc; text-align: center; }
+@media(max-width:900px){ .main-wrapper { flex-direction: column; align-items: center; } .output-container { width: 100%; max-width: 200px; margin-top: 15px; } }
+.st { color: red; font-weight: bold; }
+</style>
 </head>
 <body>
 
-<h1>Series Generator</h1>
+<div class="main-wrapper">
+  <div class="chart-container">
+    <h1>
+      Series Generator
+      <button id="refreshBtn" title="Refresh">🔄</button>
+    </h1>
+    <canvas id="seriesChart"></canvas>
+    <div class="input-row">
+      <label>Baseline <input type="number" id="baseline" min="0" value="100"></label>
+      <label>Weeks <input type="number" id="totalWeeks" min="1" value="32"></label>
+      <label>Cumplimientos <input type="number" id="totalCumplimientos" min="1" value="3"></label>
+      <label>Variability <input type="number" id="stVariability" min="0" value="3"></label>
+      <label>Min Gap <input type="number" id="minGap" min="1" value="4"></label>
+      <label>Max Gap <input type="number" id="maxGap" min="1" value="6"></label>
+    </div>
+  </div>
 
-<div class="left-section">
-  <form id="seriesForm">
-    <label>Starting Value (Base Line):
-      <input type="number" id="startValue" min="0" placeholder="e.g., 100" required>
-    </label>
-
-    <label>Number of Weeks to Generate:
-      <input type="number" id="totalWeeks" min="1" placeholder="e.g., 12" required>
-    </label>
-
-    <label>Number of Target Events (Cumplimientos):
-      <input type="number" id="totalCumplimientos" min="0" placeholder="e.g., 5" required>
-    </label>
-
-    <label>Minimum Gap Between Target Events:
-      <input type="number" id="minGap" min="0" placeholder="e.g., 2" required>
-    </label>
-
-    <label>Maximum Gap Between Target Events:
-      <input type="number" id="maxGap" min="0" placeholder="e.g., 4" required>
-    </label>
-
-    <label>Random Variation Allowed (Variability):
-      <input type="number" id="variability" min="0" placeholder="e.g., 3" required>
-    </label>
-
-    <button type="submit">Generate Series</button>
-  </form>
-
-  <div id="output"></div>
-</div>
-
-<div class="right-section">
-  <canvas id="seriesChart"></canvas>
+  <div class="output-container" id="output"></div>
 </div>
 
 <script>
+Chart.register(ChartDataLabels);
+
 function randomInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function planPositionsStrict(totalWeeks, totalBlocks, minGap, maxGap) {
-  let positions = [];
-  for (let idx = 0; idx < totalBlocks; idx++) {
-    const remaining = totalBlocks - idx - 1;
-    const highDueToRest = (totalWeeks - 1) - remaining * minGap;
-    let low = idx === 0 ? minGap : positions[idx-1] + minGap;
-    let high = idx === 0 ? Math.min(maxGap, highDueToRest) : Math.min(positions[idx-1] + maxGap, highDueToRest);
-    if (low > high) throw new Error("Cannot plan blocks with given gaps/weeks");
-    positions.push(randomInt(low, high));
-  }
-  return positions;
+// generate block with max 2 repeats, never exceed maxVal
+function generateBlock(base, length, variability, maxVal=null) {
+    const block = [];
+    const counts = {};
+    for (let i=0;i<length;i++){
+        let min = Math.max(0, base - variability);
+        let max = maxVal !== null ? Math.min(base + variability, maxVal) : base + variability;
+        let val, tries=0;
+        do {
+            val = randomInt(min,max);
+            tries++;
+        } while (counts[val]>=2 && tries<10);
+        counts[val] = (counts[val]||0)+1;
+        block.push(val);
+    }
+    return block;
 }
 
-function generateSeries(startValue, totalWeeks, totalCumplimientos, minGap, maxGap, variability) {
-  const consecNeeded = 4;
-  const stepDown = 5;
-  let estimatedFinal = Math.max(0, startValue - stepDown * totalCumplimientos);
+// main generator
+function generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability, minGap, maxGap){
+    const series=[];
+    const stWeeks=[];
+    let week=0;
+    let lastMastered=baseline;
 
-  let plannedPositions = [];
-  let attemptedBlocks = totalCumplimientos;
-  while (attemptedBlocks > 0) {
-    try {
-      plannedPositions = planPositionsStrict(totalWeeks, attemptedBlocks, minGap, maxGap);
-      totalCumplimientos = attemptedBlocks;
-      break;
-    } catch {
-      attemptedBlocks--;
+    // baseline first
+    series.push(baseline); week++;
+
+    for(let c=0;c<totalCumplimientos;c++){
+        // GAP
+        const gapLength = randomInt(minGap,maxGap);
+        const gapBlock = generateBlock(lastMastered,gapLength,stVariability,lastMastered);
+        for(let g of gapBlock){
+            if(week>=totalWeeks) break;
+            series.push(g);
+            week++;
+        }
+
+        if(week+4>totalWeeks) break;
+
+        // THE Block
+        const target = lastMastered - 5; // step-down by 5
+        const stBlock = generateBlock(target,4,stVariability,target);
+        for(let i=0;i<stBlock.length && week<totalWeeks;i++,week++){
+            series.push(stBlock[i]);
+            stWeeks.push(week);
+        }
+        lastMastered=target;
     }
-  }
 
-  let seq = Array(totalWeeks).fill(null);
-  seq[0] = startValue;
-
-  const targets = Array.from({length: totalCumplimientos}, (_, i) => Math.max(estimatedFinal, startValue - stepDown*(i+1)));
-
-  plannedPositions.forEach((pos, idx) => {
-    let startBlock = Math.max(0, pos - (consecNeeded-1));
-    let endBlock = Math.min(totalWeeks-1, pos);
-    for (let i = startBlock; i <= endBlock; i++) {
-      let low = Math.max(estimatedFinal, targets[idx] - variability);
-      let high = targets[idx];
-      seq[i] = randomInt(low, high);
+    // fill remaining weeks if any
+    while(series.length<totalWeeks){
+        series.push(randomInt(Math.max(0,lastMastered-stVariability),lastMastered));
     }
-  });
 
-  for (let i = 0; i < totalWeeks; i++) {
-    if (seq[i] !== null) continue;
-    let trend = startValue - (startValue - estimatedFinal) * i / Math.max(1, totalWeeks-1);
-    let val = randomInt(Math.max(estimatedFinal, Math.round(trend - variability)), Math.round(trend + variability));
-    seq[i] = val;
-  }
-
-  return { seq, plannedPositions };
+    return {series, stWeeks};
 }
 
 let chart;
+function updateSeries(){
+    const baseline = parseInt(document.getElementById("baseline").value);
+    const totalWeeks = parseInt(document.getElementById("totalWeeks").value);
+    const totalCumplimientos = parseInt(document.getElementById("totalCumplimientos").value);
+    const stVariability = parseInt(document.getElementById("stVariability").value);
+    const minGap = parseInt(document.getElementById("minGap").value);
+    const maxGap = parseInt(document.getElementById("maxGap").value);
 
-document.getElementById("seriesForm").addEventListener("submit", function(e) {
-  e.preventDefault();
+    const {series, stWeeks} = generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability, minGap, maxGap);
 
-  const startValue = parseInt(document.getElementById("startValue").value);
-  const totalWeeks = parseInt(document.getElementById("totalWeeks").value);
-  const totalCumplimientos = parseInt(document.getElementById("totalCumplimientos").value);
-  const minGap = parseInt(document.getElementById("minGap").value);
-  const maxGap = parseInt(document.getElementById("maxGap").value);
-  const variability = parseInt(document.getElementById("variability").value);
+    const outputDiv = document.getElementById("output");
+    outputDiv.innerHTML = '';
+    series.forEach((v, i) => {
+        const span = document.createElement('div');
+        span.textContent = v;
+        if(stWeeks.includes(i)) span.className = 'st';
+        outputDiv.appendChild(span);
+    });
 
-  try {
-    const { seq, plannedPositions } = generateSeries(startValue, totalWeeks, totalCumplimientos, minGap, maxGap, variability);
-    const labeledSeries = seq.map((v, i) => plannedPositions.includes(i) ? `*${v}` : `${v}`);
-    document.getElementById("output").textContent = labeledSeries.join("\n");
+    const labels = Array.from({length: totalWeeks}, (_, i) => i + 1);
+    const scatterst = stWeeks.map(i => ({x:i+1, y:series[i]}));
 
-    // Graph data
-    const labels = Array.from({ length: totalWeeks }, (_, i) => i + 1);
-    const mainData = seq;
-    const targetPoints = plannedPositions.map(i => ({ x: i + 1, y: seq[i] }));
-
-    if (chart) chart.destroy();
+    if(chart) chart.destroy();
     const ctx = document.getElementById("seriesChart").getContext("2d");
 
     chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: 'Series',
-            data: mainData,
-            borderColor: '#2196f3',
-            fill: false,
-            tension: 0.3
-          },
-          {
-            label: 'Target Events',
-            data: targetPoints,
-            pointBackgroundColor: 'red',
-            pointBorderColor: 'red',
-            showLine: false,
-            pointRadius: 6,
-            type: 'scatter'
-          }
-        ]
-      },
-      options: {
-        scales: {
-          y: { beginAtZero: true },
-          x: { title: { display: true, text: 'Weeks' } }
+        type:'line',
+        plugins:[ChartDataLabels],
+        data:{
+            labels: labels,
+            datasets:[
+                {
+                    label:'Series', 
+                    data:series, 
+                    borderColor:'#2196f3', 
+                    fill:false, 
+                    tension:0.3,
+                    datalabels:{display:true,color:'#2196f3',font:{size:12},anchor:'end',align:'top'}
+                },
+                {
+                    label:'st', 
+                    data:scatterst, 
+                    backgroundColor:'red', 
+                    pointRadius:6, 
+                    showLine:false, 
+                    type:'scatter', 
+                    datalabels:{display:false}
+                }
+            ]
         },
-        plugins: {
-          legend: { display: true, position: 'bottom' }
+        options:{
+            plugins:{legend:{display:true, position:'bottom'}}, 
+            scales:{
+                y:{
+                    beginAtZero:true,
+                    suggestedMax: baseline + 10, // gives extra space on top
+                    ticks:{ stepSize:5 }
+                },
+                x:{title:{display:true,text:'Weeks'}}
+            },
+            layout:{ padding:{ top:20 } } // extra space at top
         }
-      }
     });
+}
 
-  } catch(err) {
-    document.getElementById("output").textContent = "Error: " + err.message;
-  }
-});
+document.querySelectorAll('.input-row input').forEach(input=>input.addEventListener('input',updateSeries));
+document.getElementById("refreshBtn").addEventListener("click",updateSeries);
+
+updateSeries();
 </script>
-
 </body>
 </html>
