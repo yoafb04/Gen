@@ -10,7 +10,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .main-wrapper { display: flex; gap: 20px; flex-wrap: wrap; max-width: 1000px; width: 100%; }
 .chart-container, .output-container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.1); }
 .chart-container { flex: 1; display: flex; flex-direction: column; }
-.output-container { width: 120px; font-family: monospace; font-size: 14px; max-height: 400px; overflow-y: auto; white-space: pre; }
+.output-container { width: 160px; font-family: monospace; font-size: 14px; white-space: pre; overflow-y: visible; max-height: none; height: auto; }
 h1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; color: #444; }
 #refreshBtn { border: none; background: none; cursor: pointer; font-size: 22px; transition: transform 0.3s; }
 #refreshBtn:hover { transform: rotate(90deg); }
@@ -30,7 +30,9 @@ canvas { width: 100% !important; height: 500px; max-height: 500px; }
       Series Generator
       <button id="refreshBtn" title="Refresh">🔄</button>
     </h1>
+
     <canvas id="seriesChart"></canvas>
+
     <div class="input-row">
       <label>Baseline <input type="number" id="baseline" min="0" value="100"></label>
       <label>Weeks <input type="number" id="totalWeeks" min="1" value="32"></label>
@@ -69,20 +71,43 @@ function generateBlock(base, length, variability, maxVal=null) {
     return block;
 }
 
-// main generator
 function generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability, minGap, maxGap){
     const series=[];
     const stWeeks=[];
+    const stTargets={};
     let week=0;
     let lastMastered=baseline;
 
-    // baseline first
-    series.push(baseline); week++;
+    series.push(baseline); 
+    week++;
 
     for(let c=0;c<totalCumplimientos;c++){
-        // GAP
+        // target is multiple of 5 below lastMastered
+        const target = Math.floor((lastMastered - 1)/5)*5;
+
+        // GAP BLOCK
         const gapLength = randomInt(minGap,maxGap);
-        const gapBlock = generateBlock(lastMastered,gapLength,stVariability,lastMastered);
+        let gapBlock = [];
+
+        function violatesFourConsecutive(arr, tgt) {
+            let count = 0;
+            for (let v of arr) {
+                if (v <= tgt) { count++; if (count>=4) return true; }
+                else count = 0;
+            }
+            return false;
+        }
+
+        let tries = 0, MAX_TRIES = 200;
+        do {
+            gapBlock = generateBlock(lastMastered, gapLength, stVariability, lastMastered);
+            tries++;
+            if (tries === MAX_TRIES) {
+                gapBlock = generateBlock(lastMastered, gapLength, Math.max(1, stVariability*2), lastMastered);
+                break;
+            }
+        } while (gapBlock[gapBlock.length - 1]<=target || violatesFourConsecutive(gapBlock,target));
+
         for(let g of gapBlock){
             if(week>=totalWeeks) break;
             series.push(g);
@@ -91,25 +116,27 @@ function generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability,
 
         if(week+4>totalWeeks) break;
 
-        // THE Block
-        const target = lastMastered - 5; // step-down by 5
+        // STO BLOCK (4 weeks)
         const stBlock = generateBlock(target,4,stVariability,target);
+
         for(let i=0;i<stBlock.length && week<totalWeeks;i++,week++){
             series.push(stBlock[i]);
             stWeeks.push(week);
+            stTargets[week] = target;
         }
+
         lastMastered=target;
     }
 
-    // fill remaining weeks if any
     while(series.length<totalWeeks){
         series.push(randomInt(Math.max(0,lastMastered-stVariability),lastMastered));
     }
 
-    return {series, stWeeks};
+    return {series, stWeeks, stTargets};
 }
 
 let chart;
+
 function updateSeries(){
     const baseline = parseInt(document.getElementById("baseline").value);
     const totalWeeks = parseInt(document.getElementById("totalWeeks").value);
@@ -118,19 +145,24 @@ function updateSeries(){
     const minGap = parseInt(document.getElementById("minGap").value);
     const maxGap = parseInt(document.getElementById("maxGap").value);
 
-    const {series, stWeeks} = generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability, minGap, maxGap);
+    const {series, stWeeks, stTargets} = generateSeries(baseline, totalWeeks, totalCumplimientos, stVariability, minGap, maxGap);
 
     const outputDiv = document.getElementById("output");
-    outputDiv.innerHTML = '';
-    series.forEach((v, i) => {
-        const span = document.createElement('div');
-        span.textContent = v;
-        if(stWeeks.includes(i)) span.className = 'st';
-        outputDiv.appendChild(span);
-    });
+    outputDiv.textContent = "";
+    for (let i = 0; i < series.length; i++) {
+        let v = series[i];
+        let line = v.toString();
+        if (stWeeks.includes(i)) {
+            let tgt = stTargets[i];
+            line += "<=" + tgt;
+            let lastST = Math.max(...stWeeks.filter(w => stTargets[w]===tgt));
+            if (i===lastST) line += "M";
+        }
+        outputDiv.textContent += line + "\n";
+    }
 
-    const labels = Array.from({length: totalWeeks}, (_, i) => i + 1);
-    const scatterst = stWeeks.map(i => ({x:i+1, y:series[i]}));
+    const labels = Array.from({length: totalWeeks}, (_, i) => i+1);
+    const scatterst = stWeeks.map(i => ({x:i+1,y:series[i]}));
 
     if(chart) chart.destroy();
     const ctx = document.getElementById("seriesChart").getContext("2d");
@@ -141,36 +173,18 @@ function updateSeries(){
         data:{
             labels: labels,
             datasets:[
-                {
-                    label:'Series', 
-                    data:series, 
-                    borderColor:'#2196f3', 
-                    fill:false, 
-                    tension:0.3,
-                    datalabels:{display:true,color:'#2196f3',font:{size:12},anchor:'end',align:'top'}
-                },
-                {
-                    label:'st', 
-                    data:scatterst, 
-                    backgroundColor:'red', 
-                    pointRadius:6, 
-                    showLine:false, 
-                    type:'scatter', 
-                    datalabels:{display:false}
-                }
+                {label:'Series', data:series, borderColor:'#2196f3', fill:false, tension:0.3,
+                 datalabels:{display:true,color:'#2196f3',font:{size:12},anchor:'end',align:'top'}},
+                {label:'ST', data:scatterst, backgroundColor:'red', pointRadius:6, showLine:false, type:'scatter', datalabels:{display:false}}
             ]
         },
         options:{
             plugins:{legend:{display:true, position:'bottom'}}, 
             scales:{
-                y:{
-                    beginAtZero:true,
-                    suggestedMax: baseline + 10, // gives extra space on top
-                    ticks:{ stepSize:5 }
-                },
+                y:{beginAtZero:true, suggestedMax:baseline+10, ticks:{stepSize:5}},
                 x:{title:{display:true,text:'Weeks'}}
             },
-            layout:{ padding:{ top:20 } } // extra space at top
+            layout:{padding:{top:20}}
         }
     });
 }
@@ -180,5 +194,6 @@ document.getElementById("refreshBtn").addEventListener("click",updateSeries);
 
 updateSeries();
 </script>
+
 </body>
 </html>
